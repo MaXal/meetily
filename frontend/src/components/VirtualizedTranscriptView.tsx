@@ -71,6 +71,7 @@ const TranscriptSegment = memo(function TranscriptSegment({
     confidence,
     isStreaming,
     showConfidence,
+    speaker_label,
 }: {
     id: string;
     timestamp: number;
@@ -78,12 +79,18 @@ const TranscriptSegment = memo(function TranscriptSegment({
     confidence?: number;
     isStreaming: boolean;
     showConfidence: boolean;
+    speaker_label?: string;
 }) {
     const displayText = cleanStopWords(text) || (text.trim() === '' ? '[Silence]' : text);
 
     return (
         <div id={`segment-${id}`} className="mb-3">
             <div className="flex items-start gap-2">
+                <span className={`text-xs font-medium mt-1 flex-shrink-0 min-w-[45px] ${
+                    speaker_label === 'Others' ? 'text-emerald-600' : 'text-blue-600'
+                }`}>
+                    {speaker_label || 'You'}
+                </span>
                 <Tooltip>
                     <TooltipTrigger>
                         <span className="text-xs text-gray-400 mt-1 flex-shrink-0 min-w-[50px]">
@@ -296,6 +303,7 @@ export const VirtualizedTranscriptView: React.FC<VirtualizedTranscriptViewProps>
                                         confidence={segment.confidence}
                                         isStreaming={isStreaming}
                                         showConfidence={showConfidence}
+                                        speaker_label={segment.speaker_label}
                                     />
                                 </div>
                             );
@@ -352,6 +360,7 @@ export const VirtualizedTranscriptView: React.FC<VirtualizedTranscriptViewProps>
                                         confidence={segment.confidence}
                                         isStreaming={isStreaming}
                                         showConfidence={showConfidence}
+                                        speaker_label={segment.speaker_label}
                                     />
                                 </motion.div>
                             );

@@ -95,6 +95,10 @@ class DatabaseManager:
                 cursor.execute("ALTER TABLE transcripts ADD COLUMN duration REAL")
             except sqlite3.OperationalError:
                 pass  # Column already exists
+            try:
+                cursor.execute("ALTER TABLE transcripts ADD COLUMN speaker_label TEXT")
+            except sqlite3.OperationalError:
+                pass  # Column already exists
             
             # Create summary_processes table (keeping existing functionality)
             cursor.execute("""
