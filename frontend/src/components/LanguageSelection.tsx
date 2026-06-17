@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Globe } from 'lucide-react';
 import Analytics from '@/lib/analytics';
 import { toast } from 'sonner';
@@ -10,7 +10,7 @@ export interface Language {
 }
 
 // ISO 639-1 language codes supported by Whisper
-const LANGUAGES: Language[] = [
+export const LANGUAGES: Language[] = [
   { code: 'auto', name: 'Auto Detect (Original Language)' },
   { code: 'auto-translate', name: 'Auto Detect (Translate to English)' },
   { code: 'en', name: 'English' },
@@ -114,6 +114,14 @@ const LANGUAGES: Language[] = [
   { code: 'su', name: 'Sundanese' },
 ];
 
+// Concise label for the current transcription language, suitable for buttons.
+// Falls back to the raw code if unknown.
+export function getLanguageShortLabel(code: string): string {
+  if (code === 'auto') return 'Auto';
+  if (code === 'auto-translate') return 'Auto → EN';
+  return LANGUAGES.find((lang) => lang.code === code)?.name ?? code;
+}
+
 interface LanguageSelectionProps {
   selectedLanguage: string;
   onLanguageChange: (language: string) => void;
@@ -153,11 +161,8 @@ export function LanguageSelection({
         is_auto_translate: (languageCode === 'auto-translate').toString()
       });
 
-      // Show success toast
-      const languageName = selectedLang?.name || languageCode;
-      toast.success("Language preference saved", {
-        description: `Transcription language set to ${languageName}`
-      });
+      // No success toast: the selected language is already reflected in the
+      // dropdown, and a bottom toast used to cover the record button.
     } catch (error) {
       console.error('Failed to save language preference:', error);
       toast.error("Failed to save language preference", {
