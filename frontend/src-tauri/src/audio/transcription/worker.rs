@@ -50,6 +50,11 @@ pub fn start_transcription_task<R: Runtime>(
     tokio::spawn(async move {
         info!("🚀 Starting optimized parallel transcription task - guaranteeing zero chunk loss");
 
+        // Initialize speaker identification (diarization) for this recording if
+        // enabled. Only system-audio segments are diarized; the microphone is
+        // always "You". Any failure degrades to legacy source labels.
+        crate::diarization::maybe_init_session(&app).await;
+
         // Initialize transcription engine (Whisper or Parakeet based on config)
         let transcription_engine = match super::engine::get_or_init_transcription_engine(&app).await {
             Ok(engine) => engine,
@@ -145,6 +150,27 @@ pub fn start_transcription_task<R: Runtime>(
                             let chunk_duration = chunk.data.len() as f64 / chunk.sample_rate as f64;
                             let chunk_device_type = chunk.device_type.clone();
 
+                            // Diarization: keep a 16kHz copy of system-audio segments
+                            // before the chunk is consumed by transcription (the mic is
+                            // always "You" and is never diarized). Skipped entirely when
+                            // no diarization session is active.
+                            let diarization_samples: Option<Vec<f32>> =
+                                if matches!(chunk_device_type, DeviceType::System)
+                                    && crate::diarization::is_active()
+                                {
+                                    Some(if chunk.sample_rate != 16000 {
+                                        crate::audio::audio_processing::resample_audio(
+                                            &chunk.data,
+                                            chunk.sample_rate,
+                                            16000,
+                                        )
+                                    } else {
+                                        chunk.data.clone()
+                                    })
+                                } else {
+                                    None
+                                };
+
                             // Transcribe with provider-agnostic approach
                             match transcribe_chunk_with_provider(
                                 &engine_clone,
@@ -221,7 +247,13 @@ pub fn start_transcription_task<R: Runtime>(
                                             duration: chunk_duration,
                                             speaker_label: match chunk_device_type {
                                                 DeviceType::Microphone => "You".to_string(),
-                                                DeviceType::System => "Others".to_string(),
+                                                // Diarize the system stream into "Speaker N";
+                                                // fall back to "Others" when diarization is off
+                                                // or could not label this segment.
+                                                DeviceType::System => diarization_samples
+                                                    .as_deref()
+                                                    .and_then(crate::diarization::label_system_segment)
+                                                    .unwrap_or_else(|| "Others".to_string()),
                                             },
                                         };
 
@@ -404,6 +436,9 @@ pub fn start_transcription_task<R: Runtime>(
                 break;
             }
         }
+
+        // Drop the diarization session (and its embedding model) for this recording.
+        crate::diarization::clear_session();
 
         info!("✅ Parallel transcription task completed - all workers finished, ready for model unload");
     })

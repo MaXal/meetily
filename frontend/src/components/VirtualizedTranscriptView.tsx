@@ -63,6 +63,29 @@ function cleanStopWords(text: string): string {
     return cleanedText.replace(/\s+/g, ' ').trim();
 }
 
+// Distinct colors for diarized speakers ("Speaker 1/2/…" or renamed voices),
+// kept separate from the fixed "You" (blue) / legacy "Others" (emerald) colors.
+const SPEAKER_PALETTE = [
+    'text-purple-600',
+    'text-orange-600',
+    'text-pink-600',
+    'text-cyan-600',
+    'text-amber-600',
+    'text-indigo-600',
+    'text-rose-600',
+];
+
+// Map a speaker label to a stable Tailwind text-color class.
+function speakerColorClass(label?: string): string {
+    if (!label || label === 'You') return 'text-blue-600';
+    if (label === 'Others') return 'text-emerald-600';
+    let hash = 0;
+    for (let i = 0; i < label.length; i++) {
+        hash = (hash * 31 + label.charCodeAt(i)) >>> 0;
+    }
+    return SPEAKER_PALETTE[hash % SPEAKER_PALETTE.length];
+}
+
 // Memoized transcript segment component
 const TranscriptSegment = memo(function TranscriptSegment({
     id,
@@ -86,9 +109,7 @@ const TranscriptSegment = memo(function TranscriptSegment({
     return (
         <div id={`segment-${id}`} className="mb-3">
             <div className="flex items-start gap-2">
-                <span className={`text-xs font-medium mt-1 flex-shrink-0 min-w-[45px] ${
-                    speaker_label === 'Others' ? 'text-emerald-600' : 'text-blue-600'
-                }`}>
+                <span className={`text-xs font-medium mt-1 flex-shrink-0 min-w-[60px] whitespace-nowrap ${speakerColorClass(speaker_label)}`}>
                     {speaker_label || 'You'}
                 </span>
                 <Tooltip>
